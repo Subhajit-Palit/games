@@ -1,0 +1,193 @@
+#include <iostream>
+#include <conio.h>
+#include <windows.h>
+#include <vector>
+using namespace std;
+
+const int width = 30;
+const int height = 15;
+int x, y, fruitX, fruitY, score;
+int tailX[100], tailY[100];
+int nTail;
+bool gameOver;
+int level;
+
+enum Direction { STOP = 0, LEFT, RIGHT, UP, DOWN };
+Direction dir = STOP;
+
+vector<pair<int, int>> barriers;
+
+void gotoxy(int x, int y) {
+    COORD pos = { (SHORT)(x * 2), (SHORT)y };
+    SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), pos);
+}
+
+void hideCursor() {
+    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+    CONSOLE_CURSOR_INFO cursorInfo;
+    cursorInfo.dwSize = 100;
+    cursorInfo.bVisible = FALSE;
+    SetConsoleCursorInfo(hOut, &cursorInfo);
+}
+
+void setColor(int color) {
+    SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), color);
+}
+
+void generateBarriers() {
+    barriers.clear();
+    if (level == 2) {
+        for (int i = 5; i < 25; i++) {
+            barriers.push_back({i, height / 2});
+        }
+    } else if (level == 3) {
+        for (int i = 3; i < 12; i++) {
+            barriers.push_back({i, 4});
+            barriers.push_back({width - i - 1, 10});
+        }
+    }
+}
+
+void setup() {
+    gameOver = false;
+    dir = STOP;
+    x = width / 2;
+    y = height / 2;
+    fruitX = rand() % width;
+    fruitY = rand() % height;
+    score = 0;
+    nTail = 0;
+    system("cls");
+    hideCursor();
+    generateBarriers();
+}
+
+void draw() {
+    gotoxy(0, 0);
+
+    setColor(7);
+    cout << "╔";
+    for (int i = 0; i < width; i++) cout << "══";
+    cout << "╗\n";
+
+    for (int i = 0; i < height; i++) {
+        setColor(7);
+        cout << "║";
+        for (int j = 0; j < width; j++) {
+            bool printed = false;
+            if (i == y && j == x) {
+                setColor(14); // Yellow snake head
+                cout << "O ";
+                printed = true;
+            } else if (i == fruitY && j == fruitX) {
+                setColor(12); // Red fruit
+                cout << "X ";
+                printed = true;
+            } else {
+                for (auto &b : barriers) {
+                    if (b.first == j && b.second == i) {
+                        setColor(7);
+                        cout << "# ";
+                        printed = true;
+                        break;
+                    }
+                }
+                if (!printed) {
+                    for (int k = 0; k < nTail; k++) {
+                        if (tailX[k] == j && tailY[k] == i) {
+                            setColor(14); // Yellow snake body
+                            cout << "O ";
+                            printed = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            if (!printed) {
+                setColor(7);
+                cout << "  ";
+            }
+        }
+        setColor(7);
+        cout << "║\n";
+    }
+
+    cout << "╚";
+    for (int i = 0; i < width; i++) cout << "══";
+    cout << "╝\n";
+    cout << "Score: " << score << "  Level: " << level << "\n";
+    setColor(7);
+}
+
+void input() {
+    if (_kbhit()) {
+        int key = _getch();
+        if (key == 224) key = _getch();
+
+        switch (key) {
+            case 75: if (dir != RIGHT) dir = LEFT; break;
+            case 77: if (dir != LEFT) dir = RIGHT; break;
+            case 72: if (dir != DOWN) dir = UP; break;
+            case 80: if (dir != UP) dir = DOWN; break;
+            case 'x': gameOver = true; break;
+        }
+    }
+}
+
+void logic() {
+    if (dir == STOP) return;
+
+    int prevX = tailX[0], prevY = tailY[0];
+    tailX[0] = x; tailY[0] = y;
+    for (int i = 1; i < nTail; i++) {
+        int tempX = tailX[i], tempY = tailY[i];
+        tailX[i] = prevX; tailY[i] = prevY;
+        prevX = tempX; prevY = tempY;
+    }
+
+    switch (dir) {
+        case LEFT:  x--; break;
+        case RIGHT: x++; break;
+        case UP:    y--; break;
+        case DOWN:  y++; break;
+    }
+
+    if (x < 0 || x >= width || y < 0 || y >= height)
+        gameOver = true;
+
+    for (int i = 0; i < nTail; i++)
+        if (tailX[i] == x && tailY[i] == y)
+            gameOver = true;
+
+    for (auto &b : barriers)
+        if (b.first == x && b.second == y)
+            gameOver = true;
+
+    if (x == fruitX && y == fruitY) {
+        score += 10;
+        fruitX = rand() % width;
+        fruitY = rand() % height;
+        nTail++;
+    }
+}
+
+int main() {
+    while (true) {
+        cout << "Choose difficulty level (1 - Easy, 2 - Medium, 3 - Hard, 0 - Exit): ";
+        cin >> level;
+        if (level == 0) break;
+        if (level < 1 || level > 3) level = 1;
+        setup();
+        while (!gameOver) {
+            draw();
+            input();
+            logic();
+            Sleep(120);
+        }
+        gotoxy(0, height + 3);
+        setColor(7);
+        cout << "\nGame Over! Final Score: " << score << "\n";
+        system("pause");
+    }
+    return 0;
+}
